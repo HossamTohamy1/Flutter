@@ -1,16 +1,56 @@
 import 'package:flutter/foundation.dart';
-import 'package:ecommerce_app/models/user_model.dart';
+
+// Dummy User Model
+class User {
+  final String id; // ✅ Changed from int to String
+  final String name;
+  final String email;
+  final String phone;
+  final String? address;
+  final String? city;
+  final String? country;
+  final String? avatar;
+  final DateTime joinedDate;
+
+  User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.phone,
+    this.address,
+    this.city,
+    this.country,
+    this.avatar,
+    required this.joinedDate,
+  });
+}
 
 class UserProvider with ChangeNotifier {
   User? _user;
-  List<Order> _orders = [];
   bool _isAuthenticated = false;
   bool _isLoading = false;
 
+  // Getters
   User? get user => _user;
-  List<Order> get orders => _orders;
+  String? get userId => _user?.id; // ✅ Now returns String?
   bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _isLoading;
+
+  // Initialize with dummy user (for testing)
+  void initializeDummyUser() {
+    _user = User(
+      id: '1', // ✅ String ID
+      name: 'Test User',
+      email: 'test@example.com',
+      phone: '+1234567890',
+      address: '123 Main Street',
+      city: 'Cairo',
+      country: 'Egypt',
+      joinedDate: DateTime.now(),
+    );
+    _isAuthenticated = true;
+    notifyListeners();
+  }
 
   // Login
   Future<bool> login(String email, String password) async {
@@ -18,14 +58,17 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simulate API call
       await Future.delayed(const Duration(seconds: 2));
-
-      // Set dummy user
-      _user = dummyUser;
-      _orders = dummyOrders;
-      _isAuthenticated = true;
       
+      _user = User(
+        id: '1', // ✅ String ID
+        name: 'John Doe',
+        email: email,
+        phone: '+1234567890',
+        joinedDate: DateTime.now(),
+      );
+      _isAuthenticated = true;
+
       _isLoading = false;
       notifyListeners();
       return true;
@@ -47,18 +90,15 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simulate API call
       await Future.delayed(const Duration(seconds: 2));
 
-      // Create new user
       _user = User(
-        id: 1,
+        id: '1', // ✅ String ID
         name: name,
         email: email,
         phone: phone,
         joinedDate: DateTime.now(),
       );
-      _orders = [];
       _isAuthenticated = true;
 
       _isLoading = false;
@@ -87,10 +127,8 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simulate API call
       await Future.delayed(const Duration(seconds: 2));
 
-      // Update user
       _user = User(
         id: _user!.id,
         name: name ?? _user!.name,
@@ -113,25 +151,9 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Add order
-  void addOrder(Order order) {
-    _orders.insert(0, order);
-    notifyListeners();
-  }
-
-  // Get order by ID
-  Order? getOrder(int orderId) {
-    try {
-      return _orders.firstWhere((order) => order.id == orderId);
-    } catch (e) {
-      return null;
-    }
-  }
-
   // Logout
   void logout() {
     _user = null;
-    _orders = [];
     _isAuthenticated = false;
     notifyListeners();
   }

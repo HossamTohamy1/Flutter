@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../services/auth_service.dart';
+import '../../models/auth_models.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -10,11 +12,14 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  
+  final _authService = AuthService();
   
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
@@ -59,40 +64,57 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
+    _addressController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleRegister() async {
-    if (_formKey.currentState!.validate()) {
-      if (!_acceptTerms) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please accept Terms & Conditions'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
+    if (!_formKey.currentState!.validate()) return;
+    
+    if (!_acceptTerms) {
+      _showSnackBar('Please accept Terms & Conditions', Colors.orange);
+      return;
+    }
 
-      setState(() => _isLoading = true);
-      await Future.delayed(const Duration(seconds: 2));
-      setState(() => _isLoading = false);
-      
+    setState(() => _isLoading = true);
+
+    final request = RegisterRequest(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      address: _addressController.text.trim().isEmpty 
+          ? null 
+          : _addressController.text.trim(),
+    );
+
+    final response = await _authService.register(request);
+
+    setState(() => _isLoading = false);
+
+    if (response.success) {
+      _showSnackBar('Account Created Successfully! 🎉', Colors.green);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account Created Successfully! 🎉'),
-            backgroundColor: Colors.green,
-          ),
-        );
         Navigator.pop(context);
       }
+    } else {
+      _showSnackBar(response.message, Colors.red);
     }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -132,7 +154,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.2),
+                          backgroundColor: Colors.white.withOpacity(0.2),
                         ),
                       ),
 
@@ -144,11 +166,11 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
+                                color: Colors.white.withOpacity(0.2),
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.1),
+                                    color: Colors.black.withOpacity(0.1),
                                     blurRadius: 20,
                                     spreadRadius: 5,
                                   ),
@@ -191,11 +213,11 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                       Container(
                         padding: const EdgeInsets.all(30),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.95),
+                          color: Colors.white.withOpacity(0.95),
                           borderRadius: BorderRadius.circular(30),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
+                              color: Colors.black.withOpacity(0.1),
                               blurRadius: 30,
                               spreadRadius: 5,
                             ),
@@ -205,193 +227,94 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                           key: _formKey,
                           child: Column(
                             children: [
-                              TextFormField(
-                                controller: _nameController,
-                                textCapitalization: TextCapitalization.words,
-                                style: const TextStyle(fontSize: 16),
-                                decoration: InputDecoration(
-                                  labelText: 'Full Name',
-                                  prefixIcon: const Icon(Icons.person_outline),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF764ba2),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                ),
-                                validator: (value) =>
-                                    value == null || value.isEmpty ? 'Please enter your name' : null,
+                              // First Name
+                              _buildTextField(
+                                controller: _firstNameController,
+                                label: 'First Name',
+                                icon: Icons.person_outline,
+                                validator: (v) => v!.isEmpty ? 'Required' : null,
                               ),
 
                               const SizedBox(height: 20),
 
-                              TextFormField(
+                              // Last Name
+                              _buildTextField(
+                                controller: _lastNameController,
+                                label: 'Last Name',
+                                icon: Icons.person_outline,
+                                validator: (v) => v!.isEmpty ? 'Required' : null,
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              // Email
+                              _buildTextField(
                                 controller: _emailController,
+                                label: 'Email',
+                                icon: Icons.email_outlined,
                                 keyboardType: TextInputType.emailAddress,
-                                style: const TextStyle(fontSize: 16),
-                                decoration: InputDecoration(
-                                  labelText: 'Email',
-                                  prefixIcon: const Icon(Icons.email_outlined),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF764ba2),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter your email';
-                                  }
-                                  if (!value.contains('@')) {
-                                    return 'Please enter a valid email';
-                                  }
+                                validator: (v) {
+                                  if (v!.isEmpty) return 'Required';
+                                  if (!v.contains('@')) return 'Invalid email';
                                   return null;
                                 },
                               ),
 
                               const SizedBox(height: 20),
 
-                              TextFormField(
-                                controller: _phoneController,
-                                keyboardType: TextInputType.phone,
-                                style: const TextStyle(fontSize: 16),
-                                decoration: InputDecoration(
-                                  labelText: 'Phone Number',
-                                  prefixIcon: const Icon(Icons.phone_outlined),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF764ba2),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                ),
-                                validator: (value) =>
-                                    value == null || value.isEmpty ? 'Please enter your phone number' : null,
+                              // Address (Optional)
+                              _buildTextField(
+                                controller: _addressController,
+                                label: 'Address (Optional)',
+                                icon: Icons.location_on_outlined,
                               ),
 
                               const SizedBox(height: 20),
 
-                              TextFormField(
+                              // Password
+                              _buildTextField(
                                 controller: _passwordController,
+                                label: 'Password',
+                                icon: Icons.lock_outline,
                                 obscureText: !_isPasswordVisible,
-                                style: const TextStyle(fontSize: 16),
-                                decoration: InputDecoration(
-                                  labelText: 'Password',
-                                  prefixIcon: const Icon(Icons.lock_outline),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _isPasswordVisible
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isPasswordVisible = !_isPasswordVisible;
-                                      });
-                                    },
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _isPasswordVisible
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
                                   ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  focusedBorder: const OutlineInputBorder(
-                                    borderRadius: BorderRadius.all(Radius.circular(15)),
-                                    borderSide: BorderSide(
-                                      color: Color(0xFF764ba2),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
+                                  onPressed: () {
+                                    setState(() => _isPasswordVisible = !_isPasswordVisible);
+                                  },
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter your password';
-                                  }
-                                  if (value.length < 6) {
-                                    return 'Password must be at least 6 characters';
-                                  }
+                                validator: (v) {
+                                  if (v!.isEmpty) return 'Required';
+                                  if (v.length < 6) return 'Min 6 characters';
                                   return null;
                                 },
                               ),
 
                               const SizedBox(height: 20),
 
-                              TextFormField(
+                              // Confirm Password
+                              _buildTextField(
                                 controller: _confirmPasswordController,
+                                label: 'Confirm Password',
+                                icon: Icons.lock_outline,
                                 obscureText: !_isConfirmPasswordVisible,
-                                style: const TextStyle(fontSize: 16),
-                                decoration: InputDecoration(
-                                  labelText: 'Confirm Password',
-                                  prefixIcon: const Icon(Icons.lock_outline),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _isConfirmPasswordVisible
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                                      });
-                                    },
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _isConfirmPasswordVisible
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
                                   ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  focusedBorder: const OutlineInputBorder(
-                                    borderRadius: BorderRadius.all(Radius.circular(15)),
-                                    borderSide: BorderSide(
-                                      color: Color(0xFF764ba2),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
+                                  onPressed: () {
+                                    setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible);
+                                  },
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please confirm your password';
-                                  }
-                                  if (value != _passwordController.text) {
+                                validator: (v) {
+                                  if (v!.isEmpty) return 'Required';
+                                  if (v != _passwordController.text) {
                                     return 'Passwords do not match';
                                   }
                                   return null;
@@ -400,15 +323,12 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
                               const SizedBox(height: 20),
 
+                              // Terms Checkbox
                               Row(
                                 children: [
                                   Checkbox(
                                     value: _acceptTerms,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _acceptTerms = value ?? false;
-                                      });
-                                    },
+                                    onChanged: (v) => setState(() => _acceptTerms = v ?? false),
                                     activeColor: const Color(0xFF764ba2),
                                   ),
                                   Expanded(
@@ -425,6 +345,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
                               const SizedBox(height: 25),
 
+                              // Register Button
                               SizedBox(
                                 width: double.infinity,
                                 height: 55,
@@ -436,7 +357,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                                       borderRadius: BorderRadius.circular(15),
                                     ),
                                     elevation: 5,
-                                    shadowColor: const Color(0xFF764ba2).withValues(alpha: 0.5),
                                   ),
                                   child: _isLoading
                                       ? const CircularProgressIndicator(color: Colors.white)
@@ -446,7 +366,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.white,
-                                            letterSpacing: 1,
                                           ),
                                         ),
                                 ),
@@ -464,10 +383,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                           children: [
                             Text(
                               "Already have an account? ",
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 15,
-                              ),
+                              style: GoogleFonts.poppins(color: Colors.white, fontSize: 15),
                             ),
                             TextButton(
                               onPressed: () => Navigator.pop(context),
@@ -478,7 +394,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                   decoration: TextDecoration.underline,
-                                  decorationColor: Colors.white,
                                 ),
                               ),
                             ),
@@ -495,6 +410,31 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        suffixIcon: suffixIcon,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+      validator: validator,
     );
   }
 }

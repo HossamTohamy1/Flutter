@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:ecommerce_app/screens/auth/register_screen.dart';
-import 'package:ecommerce_app/screens/home/home_screen.dart';
+import 'register_screen.dart';
+import '../../services/auth_service.dart';
+import '../../models/auth_models.dart';
+import '../../screens/home/home_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +17,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService();
+  
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
@@ -61,29 +66,50 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Future<void> _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate()) return;
 
-      // Simulate API delay
-      await Future.delayed(const Duration(seconds: 2));
+    setState(() => _isLoading = true);
 
-      setState(() => _isLoading = false);
+    final request = LoginRequest(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
 
-      if (!mounted) return;
+    final response = await _authService.login(request);
+    print("🔵 USER ID FROM BACKEND: ${response.user?.id}");
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login Successful! 🎉'),
-          backgroundColor: Colors.green,
-        ),
-      );
+    setState(() => _isLoading = false);
 
-      // الانتقال للصفحة الرئيسية
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+if (response.success) {
+  // نحفظ الداتا
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('userId', response.user!.id);
+  await prefs.setString('email', response.user!.email);
+  await prefs.setString('fullName', response.user!.fullName);
+
+  _showSnackBar('Login Successful! 🎉', Colors.green);
+
+  if (mounted) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const HomeScreen()),
+    );
+  }
+
+
+    } else {
+      _showSnackBar(response.message, Colors.red);
     }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
