@@ -43,5 +43,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# --- cleanup ---
+.vscode/
+.vs/
+bin/
+obj/
+*.user
+node_modules/
+dist/
+dev-dist/
+.env
+.env.*
+!.env.example
 config.bat
-node_modules
